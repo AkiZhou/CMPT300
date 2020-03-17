@@ -1,0 +1,42 @@
+1) By using the struct of function pointers, we can emulate object oriented programming. The pros of this is that it allows better modularization making it easy to import what we need. However the con is the overhead from allocations to an object holding the function pointers. It would be a good idea to use this approach for a big scale project.
+
+2) I used semaphores for the synchronization. They were used to control writes to the condition variables and spin wait was used to regulate only one thread was working at a time.
+
+3) The dummy would allow negative inputs which will try to allocate negative amount of memory or negative number of threads. In my implementation it continues for only non negative inputs.
+
+4) No it will never miss because sched_proc loops until num_workers_remaining is zero. The scheduling algorithms do not access to that variable so there is no way these algorithms affect it.
+
+5) Extern notifies the compiler that declared variables will be defined in a different file. It allows the program to use undeclared variable in the scope without using include.
+
+6) exit_error prints the error number. We don't use errano because the intention is to see the user function error not system level error.
+
+7) The correctness does not get affected by omitting wait_for_queue, but it will affect the performance since the dispatcher thread will be in busy wait state until there is something in the queue, which takes up some processor resource even though it's doing nothing useful.
+
+8) Since for fifo, wait_for_cpu doesn't have to do anything, I differentiated the policies in the next_worker function. That is done by the main parsing user input then pointing at the corresponding structure by sched pointer defined in sched_impl.c.
+
+9) If the queue is properly updated and elements are removed, there shouldn't be any deadlocks. For fifo, I remove and update the tail and for round robin, I cycle the elements to ensure no deadlocks.
+
+10) I would make the worker_proc sleep for much longer. This way when the cpu is on the this thread it would stall. It's difficult to show the benefits of round robin scheduling because despite the fact it doesn't have to deal with all iterations of threads, it still has to wait for a long time before moving onto the next worker.
+
+
+
+1) We unblock SIGUSR1 and SIGTERM because these signals are used to cancel and suspend threads created.
+We block SIGUSR2 and SIGALRM because the signals resume thread and count time pass, but in create_worker we just create threads and wait for the scheduler, so there is no need for these signals.
+
+2) sigwait() blocks the signal SIGUSR1 until it receives SIGUSR2 signal. sigaction() uses signal handlers for SIGALRM, SIGUSR1, and SIGTERM instead of blocking signal until receiving resume signals.
+
+3) An alternative could be POSIX:XSI timers, this is more accurate and gives more control on clock drift.
+
+4) It terminates when quanta <= 0.
+
+5) The schedular finishes when all threads' quantas are 0. It won't exit when the queue is empty because there may still be threads running.
+
+6) After a thread is scheduled to run, it is still in the sched_queue but it will be suspended. It will be removed from the head of the queue when suspended and will be removed completely when its quanta <=0.
+
+7) To provide access protection, preventing race conditions.
+
+8) The purpose of completed is to check is all threads have been served. We compare this with thread_count to see if we are done or need to keep serving threads.
+
+9) Timer_handler() would be the function to modify since fifo is non-preemptive. I will make the timer_handler() only suspend the current thread until it finishes all quanta then terminate it and more to the next thread.
+
+10) I would use half quantum when the processor has higher clock speed, this would allow the processor to cycle through threads more frequently for round robin.

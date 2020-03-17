@@ -1,0 +1,102 @@
+Q1. The code attempts to read Chunk bytes from the file described by fd into buf.
+    The return value on success is the number of words read, on failure it returns -1.
+    So the if statement checks if read succeeded or not.
+
+Q2. The above is an example of a block read. That block will contain up to
+    Chunk bytes. On success, words will contain the number of bytes read from
+    the file. On failure the value of words will be -1. If the value of words is
+    less than Chunk then it indicates that we have reached the EOF.
+
+Q3. The flag value is bitwise OR of the O_CREAT, O_WRONLY, and
+    O_APPEND flags. by this flag open() will open the file in append mode, and will create a new file if the
+    file doesn't  exist yet.
+
+Q4. Run Bonnie. What is being measured by each test function?
+Q5. Look at the summary results from the Bonnie run in Q4. Does Bonnie measure latency, throughput or something else?
+Justify your answer.
+Q6. Compare character reads with block reads using Bonnie. Which is faster? Why do you think this is the case?
+Q7. Copy and paste the performance measures output when running Bonnie benchmarks in a local directory and again in an
+NFS-mounted directory. Is one kind of disk access noticeably slower over the network, or are all tests significantly slower?
+Your home directory may be an NFS mount, whereas /tmp and /scratch are disks. To test your code in /tmp, do the following:
+mkdir /tmp/your_username
+cp lmp1 /tmp/your_username
+cd /tmp/your_username ./lmp1
+(record the output) cd
+rm -fr /tmp/your_username
+local
+Q8. How does Bonnie handle from signals? Justify why filesystem benchmark program.
+incomplete reads, e.g., due to interruptions Bonnie's approach is good or bad for a
+Q9. By now you should be very familiar with the self-evaluation test harness we provide for the MPs.
+Examine the function test_file_read() in lmp1_tests.c, which tests your file_read() function from Step 2.
+
+
+
+1) Why is it so important that adjacent free blocks not be left as such?  What would happen if they were permitted?
+    If adjacent free blocks were not joined then the memory would be split into smaller and smaller blocks of free
+    memory until they were nolonger usable. The memory would end up consisting of uselss small blocks and never be able
+    to allocate a process larger then the largest hole.
+
+2) Which function(s) need to be concerned about adjacent free blocks?
+    The myfree function is the only function that needs to be concerned about adjacent free blocks. So long as myfree
+    joins any adjacent blocks they will never be an issue.
+
+3) Name one advantage of each strategy.
+    First: This strategy is easy to implement and doesn't require looping through the entire memory managment structure
+    more then once.
+    Worst: This strategy minimizes the number of small holes, meaning that the holes are more likely to be useful
+    Best: This strategy will fit put the block of memory in the smallest hole that it can, meaning that if there were
+    a hole that is very close to fitting the block this strategy will use it.
+    Next: This strategy has the same advantages as first, it is easy to implement and doesn't require looping through
+    the list more then once.
+
+4) Run the stress test on all strategies, and look at the results (tests.out). What is the significance of
+"Average largest free block"? Which strategy generally has the best performance in this metric?  Why do you think this is?
+    The "Average largest free block" metric is significant because it will give us an idea of how effeciently the
+    algorithm is placing memory blocks. A low "Average largest free block" would imply the strategy has high external
+    fragmentation. The Best fit strategy typically had the highest "Average largest free block" value.
+
+5) In the stress test results (see Question 4), what is the significance of "Average number of small blocks"?
+Which strategy generally has the best performance in this metric?  Why do you think this is?
+    the "Average number of small blocks" metric is important because small blocks typically are not going to be useful.
+    Ideally the memory managment strategy would avoid having small blocks since they are unlikely to be usefull
+    (AKA external fragmentation). In my results I found that this number was spread out fairly evenly between the four
+    tests, this was not what I was expecting. The Best strategy had a high value a little more often then the others,
+    I expected it would have been more of an outlier.
+
+6) Eventually, the many mallocs and frees produces many small blocks scattered
+across the memory pool.  There may be enough space to allocate a new block, but
+not in one place.  It is possible to compact the memory, so all the free blocks
+are moved to one large free block.  How would you implement this in the system
+you have built?
+    It is possible to compact the memory by implementing a sort of defragmentation algorythm. If I were to implement
+    this I would loop through all of my nodes strating at head, checking if they were empty. Every time I crossed
+    an empty node I would use a realloc statement to copy the data stored in the next node and all consecutive
+    allocated nodes to the location pointed to by the free node and all, adding the free space to a counter.
+    At then end of the loop you would have consolidated the memory so all the allocated nodes are back to back,
+    the last thing to do is create a single node at the end that will contain all of the free space in memory.
+
+7) If you did implement memory compaction, what changes would you need to make
+in how such a system is invoked (i.e. from a user's perspective)?
+    If you did have a memory compaction system you would need to ensure that the pointers or memeory addresses being
+    used my a user / program will always have the correct value.
+
+8) How would you use the system you have built to implement realloc?  (Brief explanation; no code)
+	A realloc function would take two inputs, the loccation of the memory being reallocated and the size of the new block.
+	 It would simply need to copy the memory stored in the location that was passed to a temporary storage location,
+	 free the memory with myfree, call mymallc to get a new block of the size it was passed then copy all the memory
+	 into the new location. The code could have a special case for when the node after the one being realloced is free
+	 and large enough for the node to expand into then it does this instead of the whole reallocation.
+
+9) Which function(s) need to know which strategy is being used?  Briefly explain why this/these and not others.
+    The only function that needs to know which strategy is being used is the mymalloc function.
+    The reason this is the only function that needs to know the strategy is that it is the only function that is
+    allocating memory. All the other functions are collecting metrics or freeing specific memory blocks,
+    these things are all independant of the allocation strategy being used.
+
+10) Give one advantage of implementing memory management using a linked list over a bit array, where every bit tells
+whether its corresponding byte is allocated.
+    An advantage to using a linked list is that it will hold the size of the memory block that was allocated.
+    If a program frees the block referenced to by a pointer you will know how many bites to free. This is also
+    good for saving time when looping through the memory, instead of checking each byte if it is allocated
+    you can just skip over all the bytes allocated to the same object. This will also save a lot of memory
+    since if you have one bit per bite dedicated to saying if it is allocated you will waste 1/8th of your memory.
